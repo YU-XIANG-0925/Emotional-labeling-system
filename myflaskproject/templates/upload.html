@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>文件上傳</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/upload_page.css') }}" />
+</head>
+
+<body>
+    <div class="upload-container">
+        <h2>請上傳文字檔</h2>
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div>
+                <div class="file-input">
+                    <input type="file" id="file" name="file" accept=".txt,.docx,.pdf,.doc,.rtf" />
+                    <div class="file-formats">
+                        支援的檔案格式: TXT, DOCX, PDF, DOC, RTF
+                    </div>
+                </div>
+                <button type="submit" id="uploadBtn">Upload</button>
+                <div class="loading" id="loadingIndicator">正在處理文件，請稍候...</div>
+            </div>
+            <!-- 原始內容 -->
+            <h3>原始內容：</h3>
+            <textarea id="original_content" name="original_content" placeholder="上傳後會顯示原始內容"
+                readonly>{{ original_content }}</textarea>
+
+            <!-- 標記後內容 -->
+            <h3>標記後的內容：</h3>
+            <div id="marked_content_display" class="output-box">
+                {{ marked_content | safe }}
+            </div>
+            <!-- 標記後內容2 -->
+            <h3>標記後的內容2：</h3>
+            <div id="marked_content_display" class="output-box">
+                {{ marked_content2 | safe }}
+            </div>
+        </form>
+    </div>
+    <!-- 選單可以事先隱藏 -->
+    <div id="emotion-menu"
+        style="display:none; position:absolute; background:white; border:1px solid #ccc; z-index:1000; padding:5px;">
+        <select id="emotion-select">
+            <option value="喜悅">喜悅</option>
+            <option value="憤怒">憤怒</option>
+            <option value="恐懼">恐懼</option>
+            <option value="悲傷">悲傷</option>
+            <option value="厭惡">厭惡</option>
+            <option value="冷靜">冷靜</option>
+        </select>
+        <button onclick="applyEmotion()">套用</button>
+    </div>
+
+    <script>
+        document
+            .getElementById("uploadForm")
+            .addEventListener("submit", function (e) {
+                const fileInput = document.getElementById("file");
+                if (!fileInput.files.length) {
+                    e.preventDefault();
+                    alert("請選擇一個文件上傳");
+                } else {
+                    // 顯示載入指示器
+                    document.getElementById("loadingIndicator").style.display = "block";
+                    document.getElementById("uploadBtn").disabled = true;
+                }
+            });
+
+        let currentTarget = null;
+
+        document.querySelectorAll('.emotion-word').forEach(el => {
+            el.addEventListener('click', function (event) {
+                currentTarget = this;
+                const menu = document.getElementById('emotion-menu');
+                const select = document.getElementById('emotion-select');
+                select.value = this.dataset.emotion;
+
+                // 將選單顯示在點擊位置
+                menu.style.display = 'block';
+                menu.style.top = event.pageY + 'px';
+                menu.style.left = event.pageX + 'px';
+            });
+        });
+
+        // 點選其他區域隱藏選單
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('emotion-menu').contains(e.target) &&
+                !e.target.classList.contains('emotion-word')) {
+                document.getElementById('emotion-menu').style.display = 'none';
+            }
+        });
+
+        function applyEmotion() {
+            const selectedEmotion = document.getElementById('emotion-select').value;
+            if (!currentTarget) return;
+
+            // 更新 data-emotion
+            currentTarget.dataset.emotion = selectedEmotion;
+
+            // 更新顏色
+            let colorMap = {
+                '喜悅': '#0000FF',
+                '快樂': '#0000FF',
+                '期待': '#0000FF',
+                '憤怒': '#FF0000',
+                '恐懼': '#FF0000',
+                '悲傷': '#FF0000',
+                '厭惡': '#FF0000',
+                '冷靜': '#00FF00'
+            };
+
+            currentTarget.setAttribute('color', colorMap[selectedEmotion] || '#000000');
+
+            document.getElementById('emotion-menu').style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>
