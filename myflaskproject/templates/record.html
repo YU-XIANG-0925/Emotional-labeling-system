@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>即時語音辨識</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #transcript {
+            margin-top: 20px;
+            font-size: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h2>🎙️ 即時語音辨識</h2>
+    <button id="startBtn">開始錄音</button>
+    <button id="stopBtn" disabled>停止錄音</button>
+    <div id="transcript">等待語音輸入...</div>
+
+    <script>
+        const socket = io();
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const transcriptDiv = document.getElementById("transcript");
+
+        let stream = null;
+        let mediaRecorder = null;
+        let intervalId = null;
+
+        async function startRecording() {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            recordAndSend();
+            intervalId = setInterval(recordAndSend, 4000);
+        }
+
+        function stopRecording() {
+            clearInterval(intervalId);
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        function recordAndSend() {
+            mediaRecorder = new MediaRecorder(stream);
+            let chunks = [];
+
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    socket.emit("audio_chunk", reader.result);
+                };
+                reader.readAsDataURL(blob);
+            };
+
+            mediaRecorder.start();
+            setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                }
+            }, 3000);
+        }
+
+        socket.on("transcript", (text) => {
+            transcriptDiv.innerHTML += "\n🗣️ " + text;
+        });
+
+        startBtn.onclick = startRecording;
+        stopBtn.onclick = stopRecording;
+    </script>
+</body>
+</html>

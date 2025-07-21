@@ -1,4 +1,7 @@
-from flask import Flask, request, jsonify, render_template
+# -*- coding: utf-8 -*-
+""" my_flask_apis.py
+Flask API for handling file uploads, text extraction, emotion highlighting, and sentiment analysis.
+"""
 import os
 import json
 import docx
@@ -9,17 +12,34 @@ from openai import OpenAI
 from datetime import datetime
 from emotion_highlighter import EmotionHighlighter
 
+import logging
+from flask import Flask, request, jsonify, render_template
+from flask_socketio import SocketIO
+from RealtimeSTT import AudioToTextRecorder
+
+# from linebot import LineBotApi, WebhookHandler
+# from linebot.exceptions import InvalidSignatureError
+# from linebot.models import MessageEvent, TextMessage, TextSendMessage
+
+# 替換成你自己的 LINE Channel Access Token 和 Secret
+LINE_CHANNEL_ACCESS_TOKEN = "kFtlIYzj4y2GdZ6f097lKqR8+xKLMCE63CozPyVbu1kemEdUTsSoqixAuIse4V7aiUKHQMpjygskjlO6GKiWP/rSXyWECrCEpegkPS0fmbDkn0YY2pHk/TeHFExWo3gLop8eQeoe+W0rjRHf7N4vDwdB04t89/1O/w1cDnyilFU="
+LINE_CHANNEL_SECRET = "c9d708cbd39678585490fc488b00c87a"
+
+# line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+# handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+
 highlighter = EmotionHighlighter()
 
 # 初始化 OpenAI 客戶端，設定 API 金鑰和 OpenRouter 的 base_url
 client = OpenAI(
-    api_key="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",
+    api_key="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",
     base_url="https://openrouter.ai/api/v1",
 )
 
 app = Flask(__name__)
-model = whisper.load_model("base")
 
+model = whisper.load_model("large-v3", device="cuda")
 
 def extract_text_from_file(file):
     """從不同類型的文件中提取文本內容"""
@@ -59,25 +79,35 @@ def extract_text_from_file(file):
 
     return text
 
-
 @app.route("/")
 def hello_world():
     return "<p>Hello, World!</p>"
 
+# @app.route("/webhook-test", methods=["POST"])
+# def webhook_test():
+#     # 取得 X-Line-Signature header 簽名
+#     signature = request.headers["X-Line-Signature"]
 
-@app.route("/stt", methods=["POST"])
-def stt():
-    print(request.files["file"])
-    audio = request.files["file"]
-    file_path = f"./temp_{audio.filename}.m4a"
-    print(file_path)
-    audio.save(file_path)
+#     # 取得 request body 內容
+#     body = request.get_data(as_text=True)
+#     app.logger.info("Request body: " + body)
 
-    result = model.transcribe(file_path, initial_prompt="以下是中文語音:")
-    # os.remove(file_path)
+#     try:
+#         handler.handle(body, signature)
+#     except InvalidSignatureError:
+#         app.logger.warning("Invalid signature. Check your channel access token/secret.")
+#         return "Invalid signature", 400
 
-    return jsonify({"text": result["text"]})
-    # return jsonify({"test": "success"})
+#     return "OK", 200
+
+# @handler.add(MessageEvent, message=TextMessage)
+# def handle_text_message(event):
+#     user_message = event.message.text
+#     reply_text = f"你說的是：{user_message}"
+#     line_bot_api.reply_message(
+#         event.reply_token,
+#         TextSendMessage(text=reply_text)
+#     )
 
 
 @app.route("/uploadfile", methods=["GET", "POST"])
@@ -136,6 +166,25 @@ def upload_file():
         "upload.html", original_content=original_content, marked_content=marked_content, marked_content2=marked_content2
     )
 
+@app.route("/record")
+def record_page():
+    return render_template("record.html")
+
+@app.route("/stt", methods=["POST"])
+def stt():
+    print(request.files["file"])
+    audio = request.files["file"]
+    file_path = f"./temp_{audio.filename}.m4a"
+    print(file_path)
+    audio.save(file_path)
+
+    result = model.transcribe(file_path, initial_prompt="以下是中文語音:")
+    # os.remove(file_path)
+
+    return jsonify({"text": result["text"]})
+    # return jsonify({"test": "success"})
+
+
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(app, port=5000)

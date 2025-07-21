@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>語音辨識</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+        }
+
+        #transcript {
+            margin-top: 20px;
+            font-size: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🎙️ 語音辨識記錄</h2>
+    <button id="startBtn">開始錄音</button>
+    <button id="stopBtn" disabled>停止錄音</button>
+    <div id="transcript">等待語音輸入...</div>
+
+    <script>
+        let stream = null;
+        let intervalId = null;
+        let mediaRecorder = null;
+
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const transcriptDiv = document.getElementById("transcript");
+
+        async function startRecordingChunk() {
+            mediaRecorder = new MediaRecorder(stream);
+            let chunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                chunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append("audio", blob, "audio.webm");
+
+                try {
+                    const response = await fetch("/upload-audio", {
+                        method: "POST",
+                        body: formData
+                    });
+                    const result = await response.json();
+                    transcriptDiv.innerHTML += "<br>🗣️ " + result.text;
+                } catch (err) {
+                    transcriptDiv.innerHTML += "<br>❌ 錯誤：" + err.message;
+                }
+            };
+
+            mediaRecorder.start();
+
+            setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    mediaRecorder.stop(); // Stop and trigger upload
+                }
+            }, 4000); // 每段錄4秒
+        }
+
+        startBtn.onclick = async () => {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            startRecordingChunk(); // 立刻錄一次
+            intervalId = setInterval(startRecordingChunk, 4500); // 每 4.5 秒錄一次
+        };
+
+        stopBtn.onclick = () => {
+            clearInterval(intervalId);
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    </script>
+
+</body>
+
+</html>

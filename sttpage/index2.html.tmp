@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡報排練輔助系統</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        /* --- 整體佈局 --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            background-color: #f0f2f5;
+            color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .text-display {
+            white-space: pre-wrap; /* Preserves spaces and line breaks */
+            font-size: 16px;
+        }
+        .yellow {
+            color: yellow;
+        }
+        .cyan {
+            color: cyan;
+        }
+
+        .presenter-view {
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 50% 50%;
+            grid-template-areas:
+                "slide-preview gesture-cue"
+                "notes notes";
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* --- 區塊通用樣式 --- */
+        .panel {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* --- 各區塊詳細樣式 --- */
+        #slide-preview-panel {
+            grid-area: slide-preview;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #slide-image-container {
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        #slide-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        #slide-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        #gesture-cue-panel {
+            grid-area: gesture-cue;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+        }
+
+        #presenter-notes-panel {
+            grid-area: notes;
+            position: relative;
+        }
+
+        #notes-content {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #333;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 15px;
+            /* for scrollbar */
+        }
+
+        #notes-content .highlight {
+            background-color: #fff3cd;
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        #notes-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        #modify-gestures-panel {
+            position: absolute;
+            right: 20px;
+            bottom: 80px;
+            /* 調整位置使其在講稿區塊內 */
+            width: 200px;
+            height: 180px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        #modify-gestures-panel .panel-title {
+            font-size: 12px;
+        }
+
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #aaa;
+            font-style: italic;
+        }
+
+        /* --- 按鈕樣式 --- */
+        .nav-button,
+        .rehearse-button {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover,
+        .rehearse-button:hover {
+            background-color: #e9ecef;
+        }
+
+        .page-indicator {
+            margin: 0 20px;
+            font-size: 16px;
+            color: #495057;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="presenter-view">
+
+        <div id="slide-preview-panel" class="panel">
+            <div class="panel-title">Current Slide</div>
+            <div id="slide-image-container">
+                <img id="slide-image" src="" alt="投影片預覽">
+            </div>
+            <div id="slide-controls">
+                <button class="nav-button" onclick="changeSlide(-1)">&lt; 上一頁</button>
+                <button class="nav-button" onclick="changeSlide(1)">下一頁 &gt;</button>
+            </div>
+        </div>
+
+        <div id="gesture-cue-panel" class="panel">
+            <div class="panel-title">Proactive Gesture Cues</div>
+            <div class="placeholder">(推薦手勢預留空間)</div>
+        </div>
+
+        <div id="realtime-stt-panel" class="panel">
+            <div class="panel-title">即時STT功能預留空間</div>
+        </div>
+
+        <div id="presenter-notes-panel" class="panel">
+            <div class="panel-title">Presenter Notes with Gesture highlights</div>
+            <div id="notes-content">
+            </div>
+            <div id="notes-footer">
+                <button class="nav-button" onclick="changeSlide(-1)">&lt;</button>
+                <span id="page-indicator" class="page-indicator">1 / N</span>
+                <button class="nav-button" onclick="changeSlide(1)">&gt;</button>
+                <button class="rehearse-button" style="margin-left: 20px;">Rehearse</button>
+            </div>
+        </div>
+
+        <div id="modify-gestures-panel" class="panel">
+            <div class="panel-title">Hover to Preview and Modify Gestures</div>
+            <div class="placeholder">(編輯手勢預留空間)</div>
+            <!-- <div class="placeholder" id="textDisplay"></div> -->
+            <div class="placeholder"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 模擬資料 ---
+        // 在實際應用中，您會從後端或檔案載入這些資料
+        const presentationData = [
+            {
+                slideUrl: "https://via.placeholder.com/400x300.png/0000FF/FFFFFF?text=Slide+1",
+                notes: "大家好，歡迎來到今天的簡報。第一頁我們要討論的是專案的<span class='highlight'>核心目標</span>。這個目標將引導我們接下來所有的工作。"
+            },
+            {
+                slideUrl: "https://via.placeholder.com/400x300.png/FF0000/FFFFFF?text=Slide+2",
+                notes: "第二頁，我們來看看市場分析。根據我們的研究，市場上有一個<span class='highlight'>關鍵的缺口</span>，這正是我們的機會所在。我們需要快速行動來抓住這個機會。"
+            },
+            {
+                slideUrl: "https://via.placeholder.com/400x300.png/008000/FFFFFF?text=Slide+3",
+                notes: "Why are we here, why are we alive? <span class='highlight'>One key reason</span> is that our ancestors on the savannas of Africa were really good at <span class='highlight'>one thing</span>... They weren’t bigger than the animals they took down a lot of the time, they weren’t faster than the animals they took down a lot of the time, but they <span class='highlight'>were much better</span> at banding together into groups and cooperating."
+            },
+            {
+                slideUrl: "https://via.placeholder.com/400x300.png/FFA500/FFFFFF?text=Slide+4",
+                notes: "最後，這是我們的行動計畫。我們將分為三個階段進行，每個階段都有明確的里程碑和交付成果。謝謝大家。"
+            }
+        ];
+
+        let currentPage = 0;
+        const totalPages = presentationData.length;
+
+        // --- DOM 元素 ---
+        const slideImage = document.getElementById('slide-image');
+        const notesContent = document.getElementById('notes-content');
+        const pageIndicator = document.getElementById('page-indicator');
+
+        // --- 核心功能 ---
+        function renderPage(pageIndex) {
+            if (pageIndex < 0 || pageIndex >= totalPages) {
+                return; // 超出範圍則不動作
+            }
+
+            currentPage = pageIndex;
+
+            const data = presentationData[currentPage];
+
+            // 1. 更新投影片圖片
+            slideImage.src = data.slideUrl;
+
+            // 2. 更新講稿內容
+            notesContent.innerHTML = data.notes;
+
+            // 3. 更新頁碼指示器
+            pageIndicator.textContent = `${currentPage + 1} / ${totalPages}`;
+        }
+
+        function changeSlide(direction) {
+            const newPage = currentPage + direction;
+            renderPage(newPage);
+        }
+
+        // --- 初始載入 ---
+        // 頁面載入時，顯示第一頁的內容
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPage(0);
+        });
+
+    </script>
+    <script src="client.js"></script>
+</body>
+
+</html>

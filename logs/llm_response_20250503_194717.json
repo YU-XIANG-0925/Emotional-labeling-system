@@ -1,0 +1,34 @@
+{
+  "id": "gen-1746272813-L5oNBDsD35qwY8gGN0eo",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "Here is the text with emotional or action words marked:\n\n《空城計》。\n\n這故事發生在三國時代。\n那時候，蜀國的大軍主力，全都出去打仗了，留守在西城的，只有……軍師諸葛亮，和少數幾百名士兵。\n\n突然，一個探子騎著快馬，風一般衝進城門，大喊：「不好了不好了！>[驚訝]司馬懿帶著十五萬大軍，正殺過來了！！」\n\n場面，一下子緊張起來->[驚訝]。\n士兵們臉色刷地一白->[恐懼]，有的人手裡的長矛都抖了起來->[恐懼]。\n\n而我們的諸葛亮呢？\n他坐在城樓上，輕輕一抬頭->[憤怒]，眼神冷靜得像湖面上一片無風的水->[鎮靜]。\n他沒有大喊，也沒有慌亂->[鎮靜]，只是沉沉地吸了一口氣->[鎮靜]，輕輕地說了兩個字：「開門。」\n\n士兵們嚇壞了->[恐懼]，跪在地上大喊：「軍師啊！敵人十五萬人耶！我們打不過啊！」->[恐懼]！\n\n諸葛亮卻輕輕一笑->[喜悅]，眼角彎起來->[喜悅]，像是看穿了一切->[自信]：「聽我命令——城門大開，士兵全部收進去，不准露面。」\n\n然後，他自己，一個人，穿著寬大的白袍，戴著羽毛扇，走到城樓前->[鎮靜]。\n他慢慢地，慢慢地，像散步一樣->[鎮靜]，撫著琴弦，「叮叮咚咚」地彈起琴來->[鎮靜]。\n\n風吹過來，城門口掛著的大旗「哗——」地響->[驚訝]。\n一切看起來，安靜得奇怪->[疑惑]。\n\n這時，司馬懿的大軍，已經來到城下->\n他們看到——城門大開？士兵呢？看不見人？->[驚訝]！\n只見城樓上，一個白衣人，悠悠地彈琴，臉上帶著微微的笑意->[喜悅]。\n\n司馬懿眼睛一眯->[懷疑]，心裡猛地咯噔一下->[驚訝]。\n\n他是個老狐狸，他懂得：「這種情況……有詐！」->[憤怒]。\n要是裡面藏著埋伏呢？要是等我一進城，就四面埋伏，萬箭齊發呢？！->[恐懼]！\n\n司馬懿狠狠一咬牙->[憤怒]，大手一揮：「撤——！」\n\n十五萬大軍，像潮水一樣，轟隆隆地退了回去->[驚訝]。\n\n而城樓上的諸葛亮呢？\n他依然微微地笑著->[喜悅]，彈完最後一個音符，輕輕地收起羽扇，轉身離開，只留下一句輕輕的呢喃：\n\n「贏，不一定靠力氣。贏，靠腦袋。」->[自信]",
+        "refusal": null,
+        "role": "assistant",
+        "annotations": null,
+        "audio": null,
+        "function_call": null,
+        "tool_calls": null,
+        "reasoning": null
+      },
+      "native_finish_reason": "stop"
+    }
+  ],
+  "created": 1746272813,
+  "model": "meta-llama/llama-3-70b-instruct",
+  "object": "chat.completion",
+  "service_tier": null,
+  "system_fingerprint": null,
+  "usage": {
+    "completion_tokens": 776,
+    "prompt_tokens": 712,
+    "total_tokens": 1488,
+    "completion_tokens_details": null,
+    "prompt_tokens_details": null
+  },
+  "provider": "DeepInfra"
+}

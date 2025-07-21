@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide View - For Audience</title>
+    <style>
+        /* 讓畫面全螢幕顯示，沒有任何邊距 */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 隱藏捲軸 */
+            background-color: #000; /* 預設背景為黑色 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* 讓 canvas 填滿容器，並保持圖片比例 */
+        #slide-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="slide-canvas"></canvas>
+
+    <script>
+        const slideCanvas = document.getElementById('slide-canvas');
+        const context = slideCanvas.getContext('2d');
+
+        // 核心功能：監聽 localStorage 的變化
+        window.addEventListener('storage', (event) => {
+            // 確認是我們指定的 'current_slide_data' 被改變了
+            if (event.key === 'current_slide_data') {
+                updateSlide(event.newValue);
+            }
+        });
+
+        // 更新畫布內容的函式
+        function updateSlide(imageDataUrl) {
+            if (!imageDataUrl) {
+                // 如果資料是空的，就清空畫布
+                context.clearRect(0, 0, slideCanvas.width, slideCanvas.height);
+                return;
+            }
+            
+            const img = new Image();
+            img.onload = () => {
+                // 設定 canvas 的大小以符合圖片
+                slideCanvas.width = img.width;
+                slideCanvas.height = img.height;
+                // 將圖片繪製到 canvas 上
+                context.drawImage(img, 0, 0);
+            };
+            img.src = imageDataUrl;
+        }
+        
+        // 頁面初次載入時，也嘗試讀取一次 localStorage，以防主控台已開啟
+        const initialData = localStorage.getItem('current_slide_data');
+        if (initialData) {
+            updateSlide(initialData);
+        }
+
+    </script>
+</body>
+</html>

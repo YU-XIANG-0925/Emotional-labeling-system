@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡報排練輔助系統 - 主控台</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            color: black;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .presenter-view {
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: grid;
+            grid-template-columns: 4fr 3fr;
+            grid-template-rows: 4fr 3fr;
+            grid-template-areas:
+                "slide-preview gesture-cue"
+                "notes notes";
+            gap: 20px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .panel {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+            /* 新增: 讓標題和按鈕並排 */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #slide-preview-panel {
+            grid-area: slide-preview;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #pdf-render-container {
+            width: 100%;
+            flex-grow: 1;
+            background-color: #f8f9fa;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0;
+            overflow: hidden;
+        }
+
+        #pdf-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        #pdf-upload-area {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            cursor: pointer;
+            color: #4a90e2;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        #pdf-upload-area:hover {
+            background-color: #e9f2fd;
+        }
+
+        #gesture-cue-panel {
+            grid-area: gesture-cue;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+        }
+
+        #presenter-notes-panel {
+            grid-area: notes;
+            position: relative;
+        }
+
+        #notes-content {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #333;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 15px;
+            white-space: pre-wrap;
+        }
+        
+        #notes-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #aaa; font-style: italic; }
+        .nav-button, .rehearse-button, .action-button { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 16px; font-size: 14px; cursor: pointer; transition: background-color 0.2s; }
+        .nav-button:hover, .rehearse-button:hover, .action-button:hover { background-color: #e9ecef; }
+        .page-indicator { margin: 0 20px; font-size: 16px; color: #495057; }
+        
+        /* 新增: 開新視窗按鈕的樣式 */
+        .open-window-btn {
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="presenter-view">
+
+        <div id="slide-preview-panel" class="panel">
+            <div class="panel-title">
+                <span>Current Slide</span>
+                <button class="action-button open-window-btn" onclick="openSlideView()">開啟觀眾視窗</button>
+            </div>
+            <div id="pdf-render-container">
+                <canvas id="pdf-canvas" style="display: none;"></canvas>
+                <div id="pdf-upload-area">
+                    <span>📂 點擊此處上傳 PDF</span>
+                    <span style="font-size: 14px; color: #666;">(可同時選取同檔名的 .txt 講稿)</span>
+                </div>
+            </div>
+            <input type="file" id="pdf-input" accept="application/pdf,text/plain" multiple style="display: none;" />
+        </div>
+        
+        <div id="gesture-cue-panel" class="panel">
+            <div class="panel-title">Proactive Gesture Cues</div>
+            <div class="placeholder">(推薦手勢預留空間)</div>
+        </div>
+
+        <div id="presenter-notes-panel" class="panel">
+            <div class="panel-title">Presenter Notes with Gesture highlights</div>
+            <div id="notes-content">請先上傳您的簡報檔案。</div>
+            <div id="notes-footer">
+                <button class="nav-button" onclick="changePdfPage(-1)">&lt;</button>
+                <span id="page-indicator" class="page-indicator">N / N</span>
+                <button class="nav-button" onclick="changePdfPage(1)">&gt;</button>
+                <button class="rehearse-button" style="margin-left: 20px;">Rehearse</button>
+            </div>
+        </div>
+
+    </div>
+    
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+
+        let dynamicPresentationData = [];
+        const pdfInput = document.getElementById('pdf-input');
+        const pdfUploadArea = document.getElementById('pdf-upload-area');
+        const pdfCanvas = document.getElementById('pdf-canvas');
+        const canvasContext = pdfCanvas.getContext('2d');
+        const notesContent = document.getElementById('notes-content');
+        const pageIndicator = document.getElementById('page-indicator');
+
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let totalPdfPages = 0;
+        let isRendering = false;
+        
+        // --- 變更點 2: 新增開啟觀眾視窗的函式 ---
+        let slideWindow = null;
+        function openSlideView() {
+            // 如果視窗已開啟或被關閉，重新開啟一個
+            if (slideWindow === null || slideWindow.closed) {
+                slideWindow = window.open('slide_view.html', 'GestureCoachSlideView', 'width=800,height=600');
+            }
+            slideWindow.focus(); // 將焦點移至該視窗
+        }
+        
+        function parseNotesFile(txtContent) {
+            const notes = {};
+            const pageRegex = /===第(\d+)頁===\n?([\s\S]*?)(?=\n===|$)/g;
+            let match;
+            while ((match = pageRegex.exec(txtContent)) !== null) {
+                const pageNum = parseInt(match[1], 10);
+                let content = match[2].trim();
+                if (content === '(無對應講稿)') {
+                    content = '<i>此頁沒有講稿。</i>';
+                }
+                notes[pageNum] = content;
+            }
+            return notes;
+        }
+
+        // --- 變更點 3: 修改 renderPdfPage 來同步畫面 ---
+        async function renderPdfPage(num) {
+            if (isRendering || !pdfDoc) return;
+            isRendering = true;
+            
+            const page = await pdfDoc.getPage(num);
+            const viewport = page.getViewport({ scale: 1.5 });
+            pdfCanvas.height = viewport.height;
+            pdfCanvas.width = viewport.width;
+            
+            const renderContext = {
+                canvasContext: canvasContext,
+                viewport: viewport
+            };
+            const renderTask = page.render(renderContext);
+
+            // 等待渲染完成
+            await renderTask.promise;
+
+            // *** 核心同步程式碼 ***
+            // 將主控台的 canvas 內容轉換成圖片資料
+            const imageDataUrl = pdfCanvas.toDataURL('image/png');
+            // 將圖片資料存入 localStorage，這會觸發 slide_view.html 的 'storage' 事件
+            localStorage.setItem('current_slide_data', imageDataUrl);
+            
+            isRendering = false;
+            currentPageNum = num;
+            
+            pageIndicator.textContent = `${currentPageNum} / ${totalPdfPages}`;
+            
+            const noteIndex = currentPageNum - 1;
+            if (dynamicPresentationData[noteIndex] && dynamicPresentationData[noteIndex].notes) {
+                notesContent.innerHTML = dynamicPresentationData[noteIndex].notes;
+            } else {
+                notesContent.innerHTML = '<i>此頁沒有講稿。</i>';
+            }
+        }
+
+        async function loadPdfAndNotes(pdfFile, notesText) {
+            try {
+                const parsedNotes = parseNotesFile(notesText);
+                const pdfData = await pdfFile.arrayBuffer();
+                pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+                totalPdfPages = pdfDoc.numPages;
+                
+                dynamicPresentationData = [];
+                for (let i = 1; i <= totalPdfPages; i++) {
+                    dynamicPresentationData.push({
+                        notes: parsedNotes[i] || '<i>此頁沒有講稿。</i>'
+                    });
+                }
+
+                pdfCanvas.style.display = 'block';
+                pdfUploadArea.style.display = 'none';
+                currentPageNum = 1;
+                await renderPdfPage(currentPageNum);
+                
+            } catch (error) {
+                console.error('載入 PDF 或講稿時發生錯誤:', error);
+                alert('載入檔案時發生錯誤。請確認檔案格式是否正確。');
+            }
+        }
+
+        function changePdfPage(direction) {
+            if (!pdfDoc) return;
+            const newPage = currentPageNum + direction;
+            if (newPage > 0 && newPage <= totalPdfPages) {
+                renderPdfPage(newPage);
+            }
+        }
+        
+        pdfUploadArea.addEventListener('click', () => {
+            pdfInput.click();
+        });
+
+        pdfInput.addEventListener('change', (event) => {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            let pdfFile = null;
+            let txtFile = null;
+            for (const file of files) {
+                if (file.name.toLowerCase().endsWith('.pdf')) {
+                    pdfFile = file;
+                } else if (file.name.toLowerCase().endsWith('.txt')) {
+                    txtFile = file;
+                }
+            }
+            if (!pdfFile) {
+                alert('請務必選擇一個 PDF 檔案。');
+                return;
+            }
+            if (!txtFile) {
+                alert('偵測到您只上傳了 PDF，將只顯示簡報畫面。');
+                loadPdfAndNotes(pdfFile, "");
+                return;
+            }
+            const pdfBaseName = pdfFile.name.replace(/\.pdf$/i, '');
+            const txtBaseName = txtFile.name.replace(/\.txt$/i, '');
+            if (pdfBaseName !== txtBaseName) {
+                alert(`檔案名稱不匹配！\nPDF: ${pdfFile.name}\nTXT: ${txtFile.name}\n請確認兩個檔案的主檔名相同。`);
+                return;
+            }
+            const txtReader = new FileReader();
+            txtReader.onload = (e) => {
+                const notesText = e.target.result;
+                loadPdfAndNotes(pdfFile, notesText);
+            };
+            txtReader.readAsText(txtFile);
+        });
+
+    </script>
+    <script src="client.js"></script>
+</body>
+</html>
